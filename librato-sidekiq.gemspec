@@ -21,7 +21,6 @@ Gem::Specification.new do |s|
   s.summary = %q{Sidekiq hooks to push stats into Librato}
   s.test_files = Dir.glob("test/**/*")
   s.add_dependency(%q<sidekiq>, [">= 0"])
-  s.add_dependency(%q<librato-rails>, [">= 0"])
   s.add_development_dependency(%q<mini_shoulda>, [">= 0"])
   s.add_development_dependency(%q<mocha>, [">= 0"])
 end

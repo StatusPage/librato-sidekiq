@@ -10,7 +10,7 @@ Requirements and Compatibility
 Gems:
 
  * sidekiq
- * librato-rails
+ * librato-rails OR librato-rack
 
 Compatibility (tested):
 

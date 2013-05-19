@@ -73,7 +73,9 @@ module Librato
             q.timing 'time', elapsed
             q.measure 'enqueued', stats.queues[queue]
 
-            q.group msg["class"].underscore do |w|
+            # using something like User.delay.send_email invokes a class name with slashes
+            # remove them in favor of underscores
+            q.group msg["class"].underscore.gsub('/', '_') do |w|
               w.increment 'processed'
               w.timing 'time', elapsed
             end

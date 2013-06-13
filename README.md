@@ -57,7 +57,7 @@ Librato::Sidekiq accepts the following options.
 
 **whitelist_classes**: Array, list of worker classes that will be the only ones sent to Librato (optional)
 
-**blacklist_queues**: Array, list of worker classes that will not be sent to Librato (optional)
+**blacklist_classes**: Array, list of worker classes that will not be sent to Librato (optional)
 
 
 Contributing

@@ -5,7 +5,7 @@ module Librato
         true
       end
 
-      cattr_accessor :whitelist_queues, :blacklist_queues, :whitelist_classes, :blacklist_classes do
+      cattr_accessor :whitelist_queues, :blacklist_queues, :whitelist_classes, :blacklist_classes, :flush_immediately do
         []
       end
 
@@ -24,7 +24,8 @@ module Librato
           :whitelist_queues => self.whitelist_queues, 
           :blacklist_queues => self.blacklist_queues, 
           :whitelist_classes => self.whitelist_classes, 
-          :blacklist_classes => self.blacklist_classes
+          :blacklist_classes => self.blacklist_classes,
+          :flush_immediately => self.flush_immediately
         }
       end
 
@@ -81,6 +82,7 @@ module Librato
             end
           end
         end
+        Librato.tracker.flush if self.flush_immediately
       end
     end
   end

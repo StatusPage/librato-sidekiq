@@ -10,6 +10,19 @@ module Librato
       end
 
       def initialize(options = {})
+        # hard dependency on one or the other being present
+        rails = !!defined?(Librato::Rails)
+        rack = !!defined?(Librato::Rack)
+        raise "librato-sidekiq depends on having one of librato-rails or librato-rack installed" unless rails || rack
+
+        # librato-rails >= 0.10 changes behavior of reporting agent
+        if File.basename($0) == 'sidekiq' && rails && Librato::Rails::VERSION.split('.')[1].to_i >= 10 && ENV['LIBRATO_AUTORUN'].nil?
+          puts "NOTICE: --------------------------------------------------------------------"
+          puts "NOTICE: THE REPORTING AGENT HAS NOT STARTED, AND NO METRICS WILL BE SENT"
+          puts "NOTICE: librato-rails >= 0.10 requires LIBRATO_AUTORUN=1 in your environment"
+          puts "NOTICE: --------------------------------------------------------------------"
+        end
+
         self.reconfigure
       end
 
@@ -61,8 +74,12 @@ module Librato
 
           sidekiq.increment 'processed'
 
-          [:enqueued, :failed].each do |m|
-            sidekiq.measure m.to_s, stats.send(m)
+          {
+            enqueued: nil,
+            failed: nil,
+            scheduled_size: 'scheduled'
+          }.each do |method, name|
+            sidekiq.measure (name || method).to_s, stats.send(method).to_i
           end
 
           return unless class_in_whitelist && !class_in_blacklist && queue_in_whitelist && !queue_in_blacklist
@@ -71,7 +88,7 @@ module Librato
           sidekiq.group queue.to_s do |q|
             q.increment 'processed'
             q.timing 'time', elapsed
-            q.measure 'enqueued', stats.queues[queue]
+            q.measure 'enqueued', stats.queues[queue].to_i
 
             # using something like User.delay.send_email invokes a class name with slashes
             # remove them in favor of underscores

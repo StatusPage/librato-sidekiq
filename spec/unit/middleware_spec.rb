@@ -9,6 +9,14 @@ describe Librato::Sidekiq::Middleware do
     stub_const "Sidekiq::Stats", Class.new
   end
 
+  before do
+    Timecop.freeze(Date.today + 30)
+  end
+
+  after do
+    Timecop.return
+  end
+
   let(:middleware) do
     allow(Sidekiq).to receive(:configure_server)
     Librato::Sidekiq::Middleware.new
@@ -30,27 +38,39 @@ describe Librato::Sidekiq::Middleware do
     end
 
     it 'should return a new instance' do
-      expect( Librato::Sidekiq::Middleware.configure ).to be_an_instance_of Librato::Sidekiq::Middleware
+      expect(Librato::Sidekiq::Middleware.configure).to be_an_instance_of Librato::Sidekiq::Middleware
     end
+
   end
 
   describe '#reconfigure' do
 
+    let(:chain) { double() }
+    let(:config) { double() }
+
     it 'should add itself to the server middleware chain' do
-      chain = double()
-      chain.should_receive(:remove).with Librato::Sidekiq::Middleware
-      chain.should_receive(:add).with Librato::Sidekiq::Middleware, middleware.options
+      expect(chain).to receive(:remove).with Librato::Sidekiq::Middleware
+      expect(chain).to receive(:add).with Librato::Sidekiq::Middleware, middleware.options
 
-      config = double()
-      config.should_receive(:server_middleware).once.and_yield(chain)
-
-      Sidekiq.should_receive(:configure_server).once.and_yield(config)
+      expect(config).to receive(:server_middleware).once.and_yield(chain)
+      expect(Sidekiq).to receive(:configure_server).once.and_yield(config)
 
       middleware.reconfigure
     end
   end
 
   describe '#call' do
+
+    let(:meter) { double(measure: nil, increment: nil, group: nil) }
+
+    let(:queue_name) { 'some_awesome_queue' }
+    let(:some_worker_instance) { nil }
+    let(:some_message) { Hash['class', double(underscore: queue_name)] }
+
+    let(:sidekiq_stats_instance_double) do
+      double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
+    end
+
     context 'when middleware is not enabled' do
 
       before(:each) { middleware.enabled = false }
@@ -65,21 +85,9 @@ describe Librato::Sidekiq::Middleware do
 
     context 'when middleware is enabled but queue is blacklisted' do
 
-      let(:queue_name) { 'awesome_queue' }
-      let(:some_worker_instance) { nil }
-      let(:some_message) { nil }
-      let(:sidekiq_group) do
-        sg = double()
-        allow(sg).to receive :measure
-        allow(sg).to receive(:increment).with "processed"
-        sg
-      end
-
       before(:each) do
-        sidekiq_stats_instance_double = double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
-        Sidekiq::Stats.stub(:new).and_return(sidekiq_stats_instance_double)
-
-        allow(Librato).to receive(:group).with('sidekiq').and_yield sidekiq_group
+        allow(Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
+        allow(Librato).to receive(:group).with('sidekiq').and_yield meter
       end
 
       before(:each) do
@@ -87,21 +95,19 @@ describe Librato::Sidekiq::Middleware do
         middleware.blacklist_queues << queue_name
       end
 
-      it 'should yield' do
-        expect { |b| middleware.call(some_worker_instance, some_message, queue_name, &b) }.to yield_with_no_args
-      end
+      it { expect { |b| middleware.call(some_worker_instance, some_message, queue_name, &b) }.to yield_with_no_args }
 
       it 'should measure increment processed metric' do
-        expect(sidekiq_group).to receive(:increment).with "processed"
+        expect(meter).to receive(:increment).with "processed"
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end
 
       it 'should measure general metrics' do
         {"enqueued" => 1, "failed" => 2, "scheduled" => 3 }.each do |method, stat|
-          expect(sidekiq_group).to receive(:measure).with(method.to_s, stat)
+          expect(meter).to receive(:measure).with(method.to_s, stat)
         end
+        expect(meter).to receive(:increment).with "processed"
 
-        expect(sidekiq_group).to receive(:increment).with "processed"
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end
 
@@ -109,58 +115,19 @@ describe Librato::Sidekiq::Middleware do
 
     context 'when middleware is enabled and everything is whitlisted' do
 
-      let(:queue_name) { 'some_awesome_queue' }
-      let(:some_worker_instance) { nil }
       let(:some_enqueued_value) { 20 }
-      let(:some_worker_class) do
-        w = double()
-        allow(w).to receive(:underscore).and_return(queue_name)
-        w
-      end
-      let(:some_message) { Hash['class', some_worker_class] }
       let(:queue_stat_hash) { Hash[queue_name, some_enqueued_value] }
-      let(:sidekiq_group) do
-        sg = double()
-        allow(sg).to receive :measure
-        allow(sg).to receive :timing
-        allow(sg).to receive(:increment).with "processed"
-        sg
-      end
-      let(:queue_group) do
-        qg = double()
-        allow(qg).to receive :measure
-        allow(qg).to receive :timing
-        allow(qg).to receive(:increment).with "processed"
-        qg
-      end
-      let(:class_group) do
-        cg = double()
-        allow(cg).to receive :measure
-        allow(cg).to receive :timing
-        allow(cg).to receive(:increment).with "processed"
-        cg
-      end
-      let(:sidekiq_stats_instance_double) do
-        double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
-      end
+      let(:sidekiq_group) { double(measure: nil, increment: nil, group: nil) }
+      let(:queue_group) { double(measure: nil, increment: nil, timing: nil, group: nil) }
+      let(:class_group) { double(measure: nil, increment: nil, timing: nil, group: nil) }
 
       before(:each) do
         middleware.enabled = true
         middleware.blacklist_queues = []
       end
 
-      before do
-        Timecop.freeze(Date.today + 30)
-      end
-
-      after do
-        Timecop.return
-      end
-
       before(:each) do
-        Sidekiq::Stats.stub(:new).and_return(sidekiq_stats_instance_double)
-        allow(queue_group).to receive(:group)
-        allow(sidekiq_group).to receive(:group)
+        allow(Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield(sidekiq_group)
         allow(sidekiq_stats_instance_double).to receive(:queues).and_return queue_stat_hash
       end

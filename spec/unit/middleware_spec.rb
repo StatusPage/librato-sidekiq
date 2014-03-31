@@ -1,5 +1,4 @@
-require 'librato-sidekiq/middleware'
-require 'timecop'
+require 'spec_helper'
 
 describe Librato::Sidekiq::Middleware do
 
@@ -7,14 +6,6 @@ describe Librato::Sidekiq::Middleware do
     stub_const "Librato::Rails", Class.new
     stub_const "Sidekiq", Module.new
     stub_const "Sidekiq::Stats", Class.new
-  end
-
-  before do
-    Timecop.freeze(Date.today + 30)
-  end
-
-  after do
-    Timecop.return
   end
 
   let(:middleware) do

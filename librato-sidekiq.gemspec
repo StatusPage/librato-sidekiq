@@ -26,4 +26,5 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency(%q<rspec>)
   s.add_development_dependency(%q<timecop>)
+  s.add_development_dependency(%q<rake>)
 end

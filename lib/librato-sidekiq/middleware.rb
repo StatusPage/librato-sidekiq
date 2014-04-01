@@ -15,31 +15,31 @@ module Librato
         # hard dependency on one or the other being present
         rails = !!defined?(Librato::Rails)
         rack = !!defined?(Librato::Rack)
-        raise "librato-sidekiq depends on having one of librato-rails or librato-rack installed" unless rails || rack
+        fail 'librato-sidekiq depends on having one of librato-rails or librato-rack installed' unless rails || rack
 
         # librato-rails >= 0.10 changes behavior of reporting agent
-        if File.basename($0) == 'sidekiq' && rails && Librato::Rails::VERSION.split('.')[1].to_i >= 10 && ENV['LIBRATO_AUTORUN'].nil?
-          puts "NOTICE: --------------------------------------------------------------------"
-          puts "NOTICE: THE REPORTING AGENT HAS NOT STARTED, AND NO METRICS WILL BE SENT"
-          puts "NOTICE: librato-rails >= 0.10 requires LIBRATO_AUTORUN=1 in your environment"
-          puts "NOTICE: --------------------------------------------------------------------"
+        if File.basename($PROGRAM_NAME) == 'sidekiq' && rails && Librato::Rails::VERSION.split('.')[1].to_i >= 10 && ENV['LIBRATO_AUTORUN'].nil?
+          puts 'NOTICE: --------------------------------------------------------------------'
+          puts 'NOTICE: THE REPORTING AGENT HAS NOT STARTED, AND NO METRICS WILL BE SENT'
+          puts 'NOTICE: librato-rails >= 0.10 requires LIBRATO_AUTORUN=1 in your environment'
+          puts 'NOTICE: --------------------------------------------------------------------'
         end
 
-        self.reconfigure
+        reconfigure
       end
 
       def self.configure
         yield(self) if block_given?
-        self.new # will call reconfigure
+        new # will call reconfigure
       end
 
       def options
         {
-          :enabled => self.enabled,
-          :whitelist_queues => self.whitelist_queues, 
-          :blacklist_queues => self.blacklist_queues, 
-          :whitelist_classes => self.whitelist_classes, 
-          :blacklist_classes => self.blacklist_classes
+          enabled: enabled,
+          whitelist_queues: whitelist_queues,
+          blacklist_queues: blacklist_queues,
+          whitelist_classes: whitelist_classes,
+          blacklist_classes: blacklist_classes
         }
       end
 
@@ -48,26 +48,17 @@ module Librato
         ::Sidekiq.configure_server do |config|
           config.server_middleware do |chain|
             chain.remove self.class
-            chain.add self.class, self.options
+            chain.add self.class, options
           end
         end
       end
 
       def call(worker_instance, msg, queue)
-        unless self.enabled
-          # puts "Gem not enabled"
-          yield
-          return
-        end
-
-        t = Time.now
+        start_time = Time.now
         yield
-        elapsed = (Time.now - t).to_f
+        elapsed = (Time.now - start_time).to_f
 
-        queue_in_whitelist = self.whitelist_queues.nil? || self.whitelist_queues.empty? || self.whitelist_queues.include?(queue.to_s)
-        queue_in_blacklist = self.blacklist_queues.include?(queue.to_s)
-        class_in_whitelist = self.whitelist_classes.nil? || self.whitelist_classes.empty? || self.whitelist_classes.include?(worker_instance.class.to_s)
-        class_in_blacklist = self.blacklist_classes.include?(worker_instance.class.to_s)
+        return unless enabled
 
         # puts "#{worker_instance} #{queue} qw:#{queue_in_whitelist} qb:#{queue_in_blacklist} cw:#{class_in_whitelist} cb:#{class_in_blacklist}"
 
@@ -76,15 +67,9 @@ module Librato
 
           sidekiq.increment 'processed'
 
-          {
-            enqueued: nil,
-            failed: nil,
-            scheduled_size: 'scheduled'
-          }.each do |method, name|
-            sidekiq.measure (name || method).to_s, stats.send(method).to_i
-          end
+          submit_general_stats sidekiq, stats
 
-          return unless class_in_whitelist && !class_in_blacklist && queue_in_whitelist && !queue_in_blacklist
+          return unless allowed_to_submit queue, worker_instance
           # puts "doing Librato insert"
 
           sidekiq.group queue.to_s do |q|
@@ -92,14 +77,46 @@ module Librato
             q.timing 'time', elapsed
             q.measure 'enqueued', stats.queues[queue].to_i
 
-            # using something like User.delay.send_email invokes a class name with slashes
-            # remove them in favor of underscores
-            q.group msg["class"].underscore.gsub('/', '_') do |w|
+            # using something like User.delay.send_email invokes
+            # a class name with slashes. remove them in favor of underscores
+            q.group msg['class'].underscore.gsub('/', '_') do |w|
               w.increment 'processed'
               w.timing 'time', elapsed
             end
           end
         end
+      end
+
+      private
+
+      def submit_general_stats(group, stats)
+        {
+          enqueued: nil,
+          failed: nil,
+          scheduled_size: 'scheduled'
+        }.each do |method, name|
+          group.measure((name || method).to_s, stats.send(method).to_i)
+        end
+      end
+
+      def queue_in_whitelist(queue)
+        whitelist_queues.nil? || whitelist_queues.empty? || whitelist_queues.include?(queue.to_s)
+      end
+
+      def queue_in_blacklist(queue)
+        blacklist_queues.include?(queue.to_s)
+      end
+
+      def class_in_whitelist(worker_instance)
+        whitelist_classes.nil? || whitelist_classes.empty? || whitelist_classes.include?(worker_instance.class.to_s)
+      end
+
+      def class_in_blacklist(worker_instance)
+        blacklist_classes.include?(worker_instance.class.to_s)
+      end
+
+      def allowed_to_submit(queue, worker_instance)
+        class_in_whitelist(worker_instance) && !class_in_blacklist(worker_instance) && queue_in_whitelist(queue) && !queue_in_blacklist(queue)
       end
     end
   end

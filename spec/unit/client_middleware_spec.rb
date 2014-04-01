@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe Librato::Sidekiq::Middleware do
+describe Librato::Sidekiq::ClientMiddleware do
 
   before(:each) do
     stub_const "Librato::Rails", Class.new
@@ -10,13 +10,13 @@ describe Librato::Sidekiq::Middleware do
 
   let(:middleware) do
     allow(Sidekiq).to receive(:configure_server)
-    Librato::Sidekiq::Middleware.new
+    Librato::Sidekiq::ClientMiddleware.new
   end
 
   describe '#intialize' do
     it 'should call reconfigure' do
       expect(Sidekiq).to receive(:configure_server)
-      Librato::Sidekiq::Middleware.new
+      Librato::Sidekiq::ClientMiddleware.new
     end
   end
 
@@ -25,11 +25,11 @@ describe Librato::Sidekiq::Middleware do
     before(:each) { Sidekiq.should_receive(:configure_server) }
 
     it 'should yield with it self as argument' do
-      expect { |b| Librato::Sidekiq::Middleware.configure &b }.to yield_with_args(Librato::Sidekiq::Middleware)
+      expect { |b| Librato::Sidekiq::ClientMiddleware.configure &b }.to yield_with_args(Librato::Sidekiq::ClientMiddleware)
     end
 
     it 'should return a new instance' do
-      expect(Librato::Sidekiq::Middleware.configure).to be_an_instance_of Librato::Sidekiq::Middleware
+      expect(Librato::Sidekiq::ClientMiddleware.configure).to be_an_instance_of Librato::Sidekiq::ClientMiddleware
     end
 
   end
@@ -40,10 +40,10 @@ describe Librato::Sidekiq::Middleware do
     let(:config) { double() }
 
     it 'should add itself to the server middleware chain' do
-      expect(chain).to receive(:remove).with Librato::Sidekiq::Middleware
-      expect(chain).to receive(:add).with Librato::Sidekiq::Middleware, middleware.options
+      expect(chain).to receive(:remove).with Librato::Sidekiq::ClientMiddleware
+      expect(chain).to receive(:add).with Librato::Sidekiq::ClientMiddleware, middleware.options
 
-      expect(config).to receive(:server_middleware).once.and_yield(chain)
+      expect(config).to receive(:client_middleware).once.and_yield(chain)
       expect(Sidekiq).to receive(:configure_server).once.and_yield(config)
 
       middleware.reconfigure
@@ -89,17 +89,8 @@ describe Librato::Sidekiq::Middleware do
 
       it { expect { |b| middleware.call(some_worker_instance, some_message, queue_name, &b) }.to yield_with_no_args }
 
-      it 'should measure increment processed metric' do
-        expect(meter).to receive(:increment).with "processed"
-        middleware.call(some_worker_instance, some_message, queue_name) {}
-      end
-
-      it 'should measure general metrics' do
-        {"enqueued" => 1, "failed" => 2, "scheduled" => 3 }.each do |method, stat|
-          expect(meter).to receive(:measure).with(method.to_s, stat)
-        end
-        expect(meter).to receive(:increment).with "processed"
-
+      it 'should measure increment queued metric' do
+        expect(meter).to receive(:increment).with 'queued'
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end
 
@@ -107,8 +98,6 @@ describe Librato::Sidekiq::Middleware do
 
     context 'when middleware is enabled and everything is whitlisted' do
 
-      let(:some_enqueued_value) { 20 }
-      let(:queue_stat_hash) { Hash[queue_name, some_enqueued_value] }
       let(:sidekiq_group) { double(measure: nil, increment: nil, group: nil) }
       let(:queue_group) { double(measure: nil, increment: nil, timing: nil, group: nil) }
       let(:class_group) { double(measure: nil, increment: nil, timing: nil, group: nil) }
@@ -121,17 +110,13 @@ describe Librato::Sidekiq::Middleware do
       before(:each) do
         allow(Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield(sidekiq_group)
-        allow(sidekiq_stats_instance_double).to receive(:queues).and_return queue_stat_hash
+        allow(sidekiq_stats_instance_double).to receive(:queues)
       end
 
       it 'should measure queue metrics' do
-        expect(sidekiq_stats_instance_double).to receive(:queues).and_return queue_stat_hash
-
         expect(sidekiq_group).to receive(:group).and_yield(queue_group)
 
-        expect(queue_group).to receive(:increment).with "processed"
-        expect(queue_group).to receive(:timing).with "time", 0
-        expect(queue_group).to receive(:measure).with "enqueued", some_enqueued_value
+        expect(queue_group).to receive(:increment).with "queued"
 
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end
@@ -140,8 +125,7 @@ describe Librato::Sidekiq::Middleware do
         expect(sidekiq_group).to receive(:group).and_yield(queue_group)
         expect(queue_group).to receive(:group).with(queue_name).and_yield(class_group)
 
-        expect(class_group).to receive(:increment).with "processed"
-        expect(class_group).to receive(:timing).with "time", 0
+        expect(class_group).to receive(:increment).with "queued"
 
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end

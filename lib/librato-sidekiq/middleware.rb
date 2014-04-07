@@ -58,18 +58,19 @@ module Librato
       def call(worker_instance, msg, queue, redis_pool = nil)
 
         start_time = Time.now
-        yield
+        result = yield
         elapsed = (Time.now - start_time).to_f
 
-        return unless enabled
-
-        # puts "#{worker_instance} #{queue} qw:#{queue_in_whitelist} qb:#{queue_in_blacklist} cw:#{class_in_whitelist} cb:#{class_in_blacklist}"
+        return result unless enabled
+        # puts "#{worker_instance} #{queue}"
 
         stats = ::Sidekiq::Stats.new
 
         Librato.group 'sidekiq' do |sidekiq|
           track sidekiq, stats, worker_instance, msg, queue, elapsed
         end
+
+        result
       end
 
       private

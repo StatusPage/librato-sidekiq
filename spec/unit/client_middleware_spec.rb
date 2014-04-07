@@ -9,20 +9,20 @@ describe Librato::Sidekiq::ClientMiddleware do
   end
 
   let(:middleware) do
-    allow(Sidekiq).to receive(:configure_server)
+    allow(Sidekiq).to receive(:configure_client)
     Librato::Sidekiq::ClientMiddleware.new
   end
 
   describe '#intialize' do
     it 'should call reconfigure' do
-      expect(Sidekiq).to receive(:configure_server)
+      expect(Sidekiq).to receive(:configure_client)
       Librato::Sidekiq::ClientMiddleware.new
     end
   end
 
   describe '#configure' do
 
-    before(:each) { Sidekiq.should_receive(:configure_server) }
+    before(:each) { Sidekiq.should_receive(:configure_client) }
 
     it 'should yield with it self as argument' do
       expect { |b| Librato::Sidekiq::ClientMiddleware.configure &b }.to yield_with_args(Librato::Sidekiq::ClientMiddleware)
@@ -44,7 +44,7 @@ describe Librato::Sidekiq::ClientMiddleware do
       expect(chain).to receive(:add).with Librato::Sidekiq::ClientMiddleware, middleware.options
 
       expect(config).to receive(:client_middleware).once.and_yield(chain)
-      expect(Sidekiq).to receive(:configure_server).once.and_yield(config)
+      expect(Sidekiq).to receive(:configure_client).once.and_yield(config)
 
       middleware.reconfigure
     end

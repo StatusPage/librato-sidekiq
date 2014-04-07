@@ -1,7 +1,6 @@
 module Librato
   module Sidekiq
     class ClientMiddleware < Middleware
-
       def reconfigure
         # puts "Reconfiguring with: #{options}"
         ::Sidekiq.configure_client do |config|

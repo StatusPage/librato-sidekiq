@@ -56,7 +56,6 @@ module Librato
       # redis_pool is needed for the sidekiq 3 upgrade
       # https://github.com/mperham/sidekiq/blob/master/3.0-Upgrade.md
       def call(worker_instance, msg, queue, redis_pool = nil)
-
         start_time = Time.now
         result = yield
         elapsed = (Time.now - start_time).to_f

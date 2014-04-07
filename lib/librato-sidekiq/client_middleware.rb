@@ -4,7 +4,7 @@ module Librato
 
       def reconfigure
         # puts "Reconfiguring with: #{options}"
-        ::Sidekiq.configure_server do |config|
+        ::Sidekiq.configure_client do |config|
           config.client_middleware do |chain|
             chain.remove self.class
             chain.add self.class, options

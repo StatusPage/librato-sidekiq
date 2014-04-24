@@ -1,4 +1,5 @@
 require 'librato-sidekiq/middleware'
+require 'librato-sidekiq/client_middleware'
 require 'timecop'
 
 # Fix time

@@ -15,6 +15,7 @@ Gems:
 Compatibility (tested):
 
  * Ruby 2.0.0
+ * Ruby 2.1.0
 
 (if you can confirm another version of Ruby, email me at scott@statuspage.io)
 

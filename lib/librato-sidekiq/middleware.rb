@@ -47,8 +47,7 @@ module Librato
         # puts "Reconfiguring with: #{options}"
         ::Sidekiq.configure_server do |config|
           config.server_middleware do |chain|
-            chain.remove self.class
-            chain.add self.class, options
+            chain.add(self.class, options) unless chain.contains?(self.class)
           end
         end
       end

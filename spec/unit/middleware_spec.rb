@@ -40,7 +40,7 @@ describe Librato::Sidekiq::Middleware do
     let(:config) { double() }
 
     it 'should add itself to the server middleware chain' do
-      expect(chain).to receive(:remove).with Librato::Sidekiq::Middleware
+      expect(chain).to receive(:contains?).with(Librato::Sidekiq::Middleware).and_return(false)
       expect(chain).to receive(:add).with Librato::Sidekiq::Middleware, middleware.options
 
       expect(config).to receive(:server_middleware).once.and_yield(chain)

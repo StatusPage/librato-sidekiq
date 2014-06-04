@@ -13,19 +13,26 @@ describe Librato::Sidekiq::Middleware do
     Librato::Sidekiq::Middleware.new
   end
 
-  describe '#intialize' do
-    it 'should call reconfigure' do
-      expect(Sidekiq).to receive(:configure_server)
+  describe '#initialize' do
+    it 'should not call reconfigure' do
+      expect(Sidekiq).not_to receive(:configure_server)
       Librato::Sidekiq::Middleware.new
     end
   end
 
-  describe '#configure' do
+  describe '.configure' do
 
-    before(:each) { Sidekiq.should_receive(:configure_server) }
+    before(:each) do
+      allow(described_class).to receive(:reconfigure)
+    end
 
     it 'should yield with it self as argument' do
       expect { |b| Librato::Sidekiq::Middleware.configure &b }.to yield_with_args(Librato::Sidekiq::Middleware)
+    end
+
+    it 'should call reconfigure' do
+      expect(described_class).to receive(:reconfigure)
+      described_class.configure
     end
 
     it 'should return a new instance' do
@@ -34,19 +41,20 @@ describe Librato::Sidekiq::Middleware do
 
   end
 
-  describe '#reconfigure' do
+  describe '.reconfigure' do
 
     let(:chain) { double() }
     let(:config) { double() }
 
     it 'should add itself to the server middleware chain' do
       expect(chain).to receive(:remove).with Librato::Sidekiq::Middleware
-      expect(chain).to receive(:add).with Librato::Sidekiq::Middleware, middleware.options
+      expect(chain).to receive(:add).with Librato::Sidekiq::Middleware,
+                                          described_class.options
 
       expect(config).to receive(:server_middleware).once.and_yield(chain)
       expect(Sidekiq).to receive(:configure_server).once.and_yield(config)
 
-      middleware.reconfigure
+      described_class.reconfigure
     end
   end
 

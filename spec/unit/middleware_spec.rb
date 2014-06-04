@@ -48,6 +48,19 @@ describe Librato::Sidekiq::Middleware do
 
       middleware.reconfigure
     end
+
+    it 'should add itself to the server middleware chain only once' do
+      expect(chain).to receive(:contains?).with(Librato::Sidekiq::Middleware).and_return(false, true)
+      expect(chain).to receive(:add).once.with Librato::Sidekiq::Middleware, middleware.options
+
+      expect(config).to receive(:server_middleware).twice.and_yield(chain)
+      expect(Sidekiq).to receive(:configure_server).twice.and_yield(config)
+
+      middleware.reconfigure
+
+      middleware.reconfigure
+    end
+
   end
 
   describe '#call' do

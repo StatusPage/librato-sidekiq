@@ -37,7 +37,7 @@ describe Librato::Sidekiq::Middleware do
   describe '#reconfigure' do
 
     let(:chain) { double() }
-    let(:config) { double() }
+    let(:config) { spy() }
 
     it 'should add itself to the server middleware chain' do
       expect(chain).to receive(:remove).with Librato::Sidekiq::Middleware
@@ -48,6 +48,17 @@ describe Librato::Sidekiq::Middleware do
 
       middleware.reconfigure
     end
+
+    it 'should add ClientMiddleware to the client middleware chain' do
+      expect(chain).to receive(:remove).with Librato::Sidekiq::ClientMiddleware
+      expect(chain).to receive(:add).with Librato::Sidekiq::ClientMiddleware, middleware.options
+
+      expect(config).to receive(:client_middleware).once.and_yield(chain)
+      expect(Sidekiq).to receive(:configure_server).once.and_yield(config)
+
+      middleware.reconfigure
+    end
+
   end
 
   describe '#call' do

@@ -10,18 +10,21 @@ Requirements and Compatibility
 Gems:
 
  * sidekiq
- * librato-rails OR librato-rack
+ * librato-rack
 
 Compatibility (tested):
 
  * Ruby 2.0.0
  * Ruby 2.1.0
+ * Ruby 2.2.2
 
 (if you can confirm another version of Ruby, email me at scott@statuspage.io)
 
 
-Usage with Rails 3.x
+Installation
 ---------------------------
+
+**Note:** Librato-sidekiq adds additional metrics to your preexisting librato-rack installation. See [librato-rack](https://github.com/librato/librato-rack/) for librato-rack configuration.
 
 In your Gemfile:
 
@@ -29,10 +32,12 @@ In your Gemfile:
 gem 'librato-sidekiq'
 ```
 
-In `config/environments/librato_sidekiq.rb`:
+In `config/initializers/librato_sidekiq.rb`:
 
 ```ruby
-# only needed for fine-tuning, gem will enable all metrics by default
+# only needed for fine-tuning, gem will enable all metrics
+# in all environments by default
+
 Librato::Sidekiq::Middleware.configure do |c|
   # only enable for production
   c.enabled = Rails.env.production?

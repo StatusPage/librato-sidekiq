@@ -87,11 +87,8 @@ describe Librato::Sidekiq::ClientMiddleware do
         middleware.blacklist_queues << queue_name
       end
 
-      it { expect { |b| middleware.call(some_worker_instance, some_message, queue_name, &b) }.to yield_with_no_args }
-
-      it 'should measure increment queued metric' do
-        expect(meter).to receive(:increment).with 'queued'
-        middleware.call(some_worker_instance, some_message, queue_name) {}
+      it 'should not send any metrics' do
+        Librato.should_not_receive(:group)
       end
 
     end

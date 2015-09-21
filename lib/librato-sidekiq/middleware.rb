@@ -60,7 +60,7 @@ module Librato
         result = yield
         elapsed = (Time.now - start_time).to_f
 
-        return result unless enabled
+        return result unless enabled && allowed_to_submit(queue, worker_instance)
         # puts "#{worker_instance} #{queue}"
 
         stats = ::Sidekiq::Stats.new
@@ -76,7 +76,6 @@ module Librato
 
       def track(tracking_group, stats, worker_instance, msg, queue, elapsed)
         submit_general_stats tracking_group, stats
-        return unless allowed_to_submit queue, worker_instance
         # puts "doing Librato insert"
         tracking_group.group queue.to_s do |q|
           q.increment 'processed'

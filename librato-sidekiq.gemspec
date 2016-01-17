@@ -24,7 +24,7 @@ Gem::Specification.new do |s|
   s.add_dependency(%q<sidekiq>, [">= 0"])
   s.add_dependency(%q<activesupport>, [">= 0"])
 
-  s.add_development_dependency(%q<rspec>)
+  s.add_development_dependency(%q<rspec>, [">= 3.4"])
   s.add_development_dependency(%q<timecop>)
   s.add_development_dependency(%q<rake>)
 end

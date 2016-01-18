@@ -33,7 +33,7 @@ In `config/environments/librato_sidekiq.rb`:
 
 ```ruby
 # only needed for fine-tuning, gem will enable all metrics by default
-Librato::Sidekiq::Middleware.configure do |c|
+Librato::Sidekiq.configure do |c|
   # only enable for production
   c.enabled = Rails.env.production?
 

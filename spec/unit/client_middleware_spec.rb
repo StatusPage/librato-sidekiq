@@ -2,51 +2,17 @@ require 'spec_helper'
 
 describe Librato::Sidekiq::ClientMiddleware do
 
-  before(:each) do
-    stub_const "Librato::Rails", Class.new
-    stub_const "Sidekiq", Module.new
-    stub_const "Sidekiq::Stats", Class.new
-  end
+  let(:config) { Librato::Sidekiq::Configuration.new }
+  let(:middleware) { described_class.new config: config }
+  let(:sidekiq_stats) { double('Sidekiq::Stats') }
 
-  let(:middleware) do
-    allow(Sidekiq).to receive(:configure_client)
-    Librato::Sidekiq::ClientMiddleware.new
+  before(:each) do
+    stub_const "Sidekiq::Stats", sidekiq_stats
   end
 
   describe '#intialize' do
-    it 'should call reconfigure' do
-      expect(Sidekiq).to receive(:configure_client)
-      Librato::Sidekiq::ClientMiddleware.new
-    end
-  end
-
-  describe '#configure' do
-
-    before(:each) { Sidekiq.should_receive(:configure_client) }
-
-    it 'should yield with it self as argument' do
-      expect { |b| Librato::Sidekiq::ClientMiddleware.configure &b }.to yield_with_args(Librato::Sidekiq::ClientMiddleware)
-    end
-
-    it 'should return a new instance' do
-      expect(Librato::Sidekiq::ClientMiddleware.configure).to be_an_instance_of Librato::Sidekiq::ClientMiddleware
-    end
-
-  end
-
-  describe '#reconfigure' do
-
-    let(:chain) { double() }
-    let(:config) { double() }
-
-    it 'should add itself to the server middleware chain' do
-      expect(chain).to receive(:remove).with Librato::Sidekiq::ClientMiddleware
-      expect(chain).to receive(:add).with Librato::Sidekiq::ClientMiddleware, middleware.options
-
-      expect(config).to receive(:client_middleware).once.and_yield(chain)
-      expect(Sidekiq).to receive(:configure_client).once.and_yield(config)
-
-      middleware.reconfigure
+    it 'should assign the config' do
+      expect(middleware.config).to eq(config)
     end
   end
 
@@ -59,17 +25,17 @@ describe Librato::Sidekiq::ClientMiddleware do
     let(:some_message) { Hash['class', double(underscore: queue_name)] }
 
     let(:sidekiq_stats_instance_double) do
-      double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
+      instance_double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
     end
 
     context 'when middleware is not enabled' do
 
-      before(:each) { middleware.enabled = false }
+      before(:each) { config.enabled = false }
 
       it { expect { |b| middleware.call(1,2,3,&b) }.to yield_with_no_args }
 
       it 'should not send any metrics' do
-        Librato.should_not_receive(:group)
+        expect(Librato).to_not receive(:group)
       end
 
     end
@@ -77,14 +43,14 @@ describe Librato::Sidekiq::ClientMiddleware do
     context 'when middleware is enabled but queue is blacklisted' do
 
       before(:each) do
-        allow(Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
+        allow(sidekiq_stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield meter
       end
 
       before(:each) do
-        middleware.enabled = true
-        middleware.blacklist_queues = []
-        middleware.blacklist_queues << queue_name
+        config.enabled = true
+        config.blacklist_queues = []
+        config.blacklist_queues << queue_name
       end
 
       it { expect { |b| middleware.call(some_worker_instance, some_message, queue_name, &b) }.to yield_with_no_args }
@@ -103,8 +69,8 @@ describe Librato::Sidekiq::ClientMiddleware do
       let(:class_group) { double(measure: nil, increment: nil, timing: nil, group: nil) }
 
       before(:each) do
-        middleware.enabled = true
-        middleware.blacklist_queues = []
+        config.enabled = true
+        config.blacklist_queues = []
       end
 
       before(:each) do

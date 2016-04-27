@@ -22,7 +22,7 @@ describe Librato::Sidekiq::Middleware do
 
   describe '#configure' do
 
-    before(:each) { Sidekiq.should_receive(:configure_server) }
+    before(:each) { expect(Sidekiq).to receive(:configure_server) }
 
     it 'should yield with it self as argument' do
       expect { |b| Librato::Sidekiq::Middleware.configure &b }.to yield_with_args(Librato::Sidekiq::Middleware)
@@ -59,7 +59,7 @@ describe Librato::Sidekiq::Middleware do
     let(:some_message) { Hash['class', double(underscore: queue_name)] }
 
     let(:sidekiq_stats_instance_double) do
-      double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
+      double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3, :dead_size => 4)
     end
 
     context 'when middleware is not enabled' do
@@ -69,7 +69,7 @@ describe Librato::Sidekiq::Middleware do
       it { expect { |b| middleware.call(1,2,3,&b) }.to yield_with_no_args }
 
       it 'should not send any metrics' do
-        Librato.should_not_receive(:group)
+        expect(Librato).to_not receive(:group)
       end
 
     end
@@ -95,7 +95,7 @@ describe Librato::Sidekiq::Middleware do
       end
 
       it 'should measure general metrics' do
-        {"enqueued" => 1, "failed" => 2, "scheduled" => 3 }.each do |method, stat|
+        {"enqueued" => 1, "failed" => 2, "scheduled" => 3, :dead_size => 4 }.each do |method, stat|
           expect(meter).to receive(:measure).with(method.to_s, stat)
         end
         expect(meter).to receive(:increment).with "processed"

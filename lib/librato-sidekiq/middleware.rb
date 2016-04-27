@@ -97,6 +97,7 @@ module Librato
         {
           enqueued: nil,
           failed: nil,
+          dead_size: nil,
           scheduled_size: 'scheduled'
         }.each do |method, name|
           group.measure((name || method).to_s, stats.send(method).to_i)

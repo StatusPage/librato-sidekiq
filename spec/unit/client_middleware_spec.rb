@@ -22,7 +22,7 @@ describe Librato::Sidekiq::ClientMiddleware do
 
   describe '#configure' do
 
-    before(:each) { Sidekiq.should_receive(:configure_client) }
+    before(:each) { expect(Sidekiq).to receive(:configure_client) }
 
     it 'should yield with it self as argument' do
       expect { |b| Librato::Sidekiq::ClientMiddleware.configure &b }.to yield_with_args(Librato::Sidekiq::ClientMiddleware)
@@ -69,7 +69,7 @@ describe Librato::Sidekiq::ClientMiddleware do
       it { expect { |b| middleware.call(1,2,3,&b) }.to yield_with_no_args }
 
       it 'should not send any metrics' do
-        Librato.should_not_receive(:group)
+        expect(Librato).to_not receive(:group)
       end
 
     end

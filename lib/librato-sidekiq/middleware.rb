@@ -18,7 +18,7 @@ module Librato
         fail 'librato-sidekiq depends on having one of librato-rails or librato-rack installed' unless rails || rack
 
         # librato-rails >= 0.10 changes behavior of reporting agent
-        if File.basename($PROGRAM_NAME) == 'sidekiq' && rails && Librato::Rails::VERSION.split('.')[1].to_i >= 10 && ENV['LIBRATO_AUTORUN'].nil?
+        if File.basename($PROGRAM_NAME) == 'sidekiq' && rails && Librato::Rails::VERSION.split('.')[1].to_i >= 10 && ENV['LIBRATO_AUTORUN'].nil? && enabled
           puts 'NOTICE: --------------------------------------------------------------------'
           puts 'NOTICE: THE REPORTING AGENT HAS NOT STARTED, AND NO METRICS WILL BE SENT'
           puts 'NOTICE: librato-rails >= 0.10 requires LIBRATO_AUTORUN=1 in your environment'

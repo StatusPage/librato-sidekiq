@@ -24,16 +24,25 @@ module Librato
           puts 'NOTICE: librato-rails >= 0.10 requires LIBRATO_AUTORUN=1 in your environment'
           puts 'NOTICE: --------------------------------------------------------------------'
         end
-
-        reconfigure
       end
 
       def self.configure
         yield(self) if block_given?
-        new # will call reconfigure
+        reconfigure
+        new
       end
 
-      def options
+      def self.reconfigure
+        # puts "Reconfiguring with: #{options}"
+        ::Sidekiq.configure_server do |config|
+          config.server_middleware do |chain|
+            chain.remove self
+            chain.add self, options
+          end
+        end
+      end
+
+      def self.options
         {
           enabled: enabled,
           whitelist_queues: whitelist_queues,
@@ -41,16 +50,6 @@ module Librato
           whitelist_classes: whitelist_classes,
           blacklist_classes: blacklist_classes
         }
-      end
-
-      def reconfigure
-        # puts "Reconfiguring with: #{options}"
-        ::Sidekiq.configure_server do |config|
-          config.server_middleware do |chain|
-            chain.remove self.class
-            chain.add self.class, options
-          end
-        end
       end
 
       # redis_pool is needed for the sidekiq 3 upgrade

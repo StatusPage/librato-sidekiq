@@ -13,7 +13,7 @@ module Librato
 
       protected
 
-      def track(tracking_group, stats, worker_instance, msg, queue, elapsed)
+      def track(tracking_group, stats, worker_instance, msg, queue, elapsed, _latency)
         tracking_group.increment 'queued'
         return unless allowed_to_submit queue, worker_instance
         # puts "doing Librato insert"

@@ -64,7 +64,8 @@ describe Librato::Sidekiq::Middleware do
 
     let(:queue_name) { 'some_awesome_queue' }
     let(:some_worker_instance) { nil }
-    let(:some_message) { Hash['class', double(underscore: queue_name)] }
+    let(:latency_seconds) { 5 }
+    let(:some_message) { Hash['class', double(underscore: queue_name), 'enqueued_at', (Time.now - latency_seconds).to_f] }
 
     let(:sidekiq_stats_instance_double) do
       double("Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
@@ -138,6 +139,7 @@ describe Librato::Sidekiq::Middleware do
         expect(sidekiq_group).to receive(:group).and_yield(queue_group)
 
         expect(queue_group).to receive(:increment).with "processed"
+        expect(queue_group).to receive(:timing).with "latency", latency_seconds
         expect(queue_group).to receive(:timing).with "time", 0
         expect(queue_group).to receive(:measure).with "enqueued", some_enqueued_value
 
@@ -149,6 +151,7 @@ describe Librato::Sidekiq::Middleware do
         expect(queue_group).to receive(:group).with(queue_name).and_yield(class_group)
 
         expect(class_group).to receive(:increment).with "processed"
+        expect(queue_group).to receive(:timing).with "latency", latency_seconds
         expect(class_group).to receive(:timing).with "time", 0
 
         middleware.call(some_worker_instance, some_message, queue_name) {}

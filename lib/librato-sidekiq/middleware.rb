@@ -62,10 +62,12 @@ module Librato
         return result unless enabled
         # puts "#{worker_instance} #{queue}"
 
+        enqueued_at = msg['enqueued_at']
+        latency = enqueued_at ? start_time.to_f - enqueued_at : nil
         stats = ::Sidekiq::Stats.new
 
         Librato.group 'sidekiq' do |sidekiq|
-          track sidekiq, stats, worker_instance, msg, queue, elapsed
+          track sidekiq, stats, worker_instance, msg, queue, elapsed, latency
         end
 
         result
@@ -73,12 +75,13 @@ module Librato
 
       private
 
-      def track(tracking_group, stats, worker_instance, msg, queue, elapsed)
+      def track(tracking_group, stats, worker_instance, msg, queue, elapsed, latency)
         submit_general_stats tracking_group, stats
         return unless allowed_to_submit queue, worker_instance
         # puts "doing Librato insert"
         tracking_group.group queue.to_s do |q|
           q.increment 'processed'
+          q.timing 'latency', latency if latency
           q.timing 'time', elapsed
           q.measure 'enqueued', stats.queues[queue].to_i
 
@@ -86,6 +89,7 @@ module Librato
           # a class name with slashes. remove them in favor of underscores
           q.group msg['class'].underscore.gsub('/', '_') do |w|
             w.increment 'processed'
+            w.timing 'latency', latency if latency
             w.timing 'time', elapsed
           end
         end

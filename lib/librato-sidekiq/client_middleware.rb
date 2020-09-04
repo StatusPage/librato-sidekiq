@@ -2,13 +2,16 @@ module Librato
   module Sidekiq
     class ClientMiddleware < Middleware
       def self.reconfigure
-        # puts "Reconfiguring with: #{options}"
-        ::Sidekiq.configure_client do |config|
+        client_configuration = Proc.new do |config|
           config.client_middleware do |chain|
             chain.remove self
             chain.add self, options
           end
         end
+        # puts "Reconfiguring with: #{options}"
+        ::Sidekiq.configure_client(&client_configuration)
+        # Add to the client used on the server too (so jobs enqueued by other jobs get metrics, not just those enqueued by the app)
+        ::Sidekiq.configure_server(&client_configuration)
       end
 
       protected

@@ -81,16 +81,16 @@ module Librato
         # puts "doing Librato insert"
         tracking_group.group queue.to_s do |q|
           q.increment 'processed'
-          q.timing 'latency', latency if latency
-          q.timing 'time', elapsed
+          q.timing 'latency', latency, percentile: [95, 99] if latency
+          q.timing 'time', elapsed, percentile: [95, 99]
           q.measure 'enqueued', stats.queues[queue].to_i
 
           # using something like User.delay.send_email invokes
           # a class name with slashes. remove them in favor of underscores
           q.group msg['class'].underscore.gsub('/', '_') do |w|
             w.increment 'processed'
-            w.timing 'latency', latency if latency
-            w.timing 'time', elapsed
+            w.timing 'latency', latency, percentile: [95, 99] if latency
+            w.timing 'time', elapsed, percentile: [95, 99]
           end
         end
       end

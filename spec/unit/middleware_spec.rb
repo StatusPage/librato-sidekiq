@@ -139,8 +139,8 @@ describe Librato::Sidekiq::Middleware do
         expect(sidekiq_group).to receive(:group).and_yield(queue_group)
 
         expect(queue_group).to receive(:increment).with "processed"
-        expect(queue_group).to receive(:timing).with "latency", latency_seconds
-        expect(queue_group).to receive(:timing).with "time", 0
+        expect(queue_group).to receive(:timing).with "latency", latency_seconds, percentile: [95, 99]
+        expect(queue_group).to receive(:timing).with "time", 0, percentile: [95, 99]
         expect(queue_group).to receive(:measure).with "enqueued", some_enqueued_value
 
         middleware.call(some_worker_instance, some_message, queue_name) {}
@@ -151,8 +151,8 @@ describe Librato::Sidekiq::Middleware do
         expect(queue_group).to receive(:group).with(queue_name).and_yield(class_group)
 
         expect(class_group).to receive(:increment).with "processed"
-        expect(queue_group).to receive(:timing).with "latency", latency_seconds
-        expect(class_group).to receive(:timing).with "time", 0
+        expect(queue_group).to receive(:timing).with "latency", latency_seconds, percentile: [95, 99]
+        expect(class_group).to receive(:timing).with "time", 0, percentile: [95, 99]
 
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end

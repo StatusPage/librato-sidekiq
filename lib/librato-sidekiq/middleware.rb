@@ -1,4 +1,5 @@
 require 'active_support/core_ext/class/attribute_accessors'
+require_relative 'stats'
 
 module Librato
   module Sidekiq
@@ -64,7 +65,7 @@ module Librato
 
         enqueued_at = msg['enqueued_at']
         latency = enqueued_at ? start_time.to_f - enqueued_at : nil
-        stats = ::Sidekiq::Stats.new
+        stats = ::Librato::Sidekiq::Stats.new
 
         Librato.group 'sidekiq' do |sidekiq|
           track sidekiq, stats, worker_instance, msg, queue, elapsed, latency

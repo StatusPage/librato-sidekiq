@@ -1,6 +1,4 @@
 require 'active_support/core_ext/class/attribute_accessors'
-require_relative 'stats'
-
 module Librato
   module Sidekiq
     class Middleware
@@ -65,10 +63,9 @@ module Librato
 
         enqueued_at = msg['enqueued_at']
         latency = enqueued_at ? start_time.to_f - enqueued_at : nil
-        stats = ::Librato::Sidekiq::Stats.new
 
         Librato.group 'sidekiq' do |sidekiq|
-          track sidekiq, stats, worker_instance, msg, queue, elapsed, latency
+          track sidekiq, worker_instance, msg, queue, elapsed, latency
         end
 
         result
@@ -76,15 +73,16 @@ module Librato
 
       private
 
-      def track(tracking_group, stats, worker_instance, msg, queue, elapsed, latency)
-        submit_general_stats tracking_group, stats
+      def track(tracking_group, worker_instance, msg, queue, elapsed, latency)
+        tracking_group.increment 'processed'
+
         return unless allowed_to_submit queue, worker_instance
+
         # puts "doing Librato insert"
         tracking_group.group queue.to_s do |q|
           q.increment 'processed'
           q.timing 'latency', latency, percentile: [95, 99] if latency
           q.timing 'time', elapsed, percentile: [95, 99]
-          q.measure 'enqueued', stats.queues[queue].to_i
 
           # using something like User.delay.send_email invokes
           # a class name with slashes. remove them in favor of underscores
@@ -93,17 +91,6 @@ module Librato
             w.timing 'latency', latency, percentile: [95, 99] if latency
             w.timing 'time', elapsed, percentile: [95, 99]
           end
-        end
-      end
-
-      def submit_general_stats(group, stats)
-        group.increment 'processed'
-        {
-          enqueued: nil,
-          failed: nil,
-          scheduled_size: 'scheduled'
-        }.each do |method, name|
-          group.measure((name || method).to_s, stats.send(method).to_i)
         end
       end
 

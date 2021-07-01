@@ -16,7 +16,7 @@ module Librato
 
       protected
 
-      def track(tracking_group, _stats, worker_instance, msg, queue, _elapsed, _latency)
+      def track(tracking_group, worker_instance, msg, queue, _elapsed, _latency)
         tracking_group.increment 'queued'
         return unless allowed_to_submit queue, worker_instance
 

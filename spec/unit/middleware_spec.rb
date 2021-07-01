@@ -5,7 +5,6 @@ describe Librato::Sidekiq::Middleware do
   before(:each) do
     stub_const "Librato::Rails", Class.new
     stub_const "Sidekiq", Module.new
-    stub_const "Librato::Sidekiq::Stats", Class.new
   end
 
   let(:middleware) do
@@ -67,10 +66,6 @@ describe Librato::Sidekiq::Middleware do
     let(:latency_seconds) { 5 }
     let(:some_message) { Hash['class', double(underscore: queue_name), 'enqueued_at', (Time.now - latency_seconds).to_f] }
 
-    let(:sidekiq_stats_instance_double) do
-      double("Librato::Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
-    end
-
     context 'when middleware is not enabled' do
 
       before(:each) { middleware.enabled = false }
@@ -86,7 +81,6 @@ describe Librato::Sidekiq::Middleware do
     context 'when middleware is enabled but queue is blacklisted' do
 
       before(:each) do
-        allow(Librato::Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield meter
       end
 
@@ -100,15 +94,6 @@ describe Librato::Sidekiq::Middleware do
 
       it 'should measure increment processed metric' do
         expect(meter).to receive(:increment).with "processed"
-        middleware.call(some_worker_instance, some_message, queue_name) {}
-      end
-
-      it 'should measure general metrics' do
-        {"enqueued" => 1, "failed" => 2, "scheduled" => 3 }.each do |method, stat|
-          expect(meter).to receive(:measure).with(method.to_s, stat)
-        end
-        expect(meter).to receive(:increment).with "processed"
-
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end
 
@@ -128,20 +113,15 @@ describe Librato::Sidekiq::Middleware do
       end
 
       before(:each) do
-        allow(Librato::Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield(sidekiq_group)
-        allow(sidekiq_stats_instance_double).to receive(:queues).and_return queue_stat_hash
       end
 
       it 'should measure queue metrics' do
-        expect(sidekiq_stats_instance_double).to receive(:queues).and_return queue_stat_hash
-
         expect(sidekiq_group).to receive(:group).and_yield(queue_group)
 
         expect(queue_group).to receive(:increment).with "processed"
         expect(queue_group).to receive(:timing).with "latency", latency_seconds, percentile: [95, 99]
         expect(queue_group).to receive(:timing).with "time", 0, percentile: [95, 99]
-        expect(queue_group).to receive(:measure).with "enqueued", some_enqueued_value
 
         middleware.call(some_worker_instance, some_message, queue_name) {}
       end

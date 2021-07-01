@@ -5,7 +5,6 @@ describe Librato::Sidekiq::ClientMiddleware do
   before(:each) do
     stub_const "Librato::Rails", Class.new
     stub_const "Sidekiq", Module.new
-    stub_const "Librato::Sidekiq::Stats", Class.new
   end
 
   let(:middleware) do
@@ -79,10 +78,6 @@ describe Librato::Sidekiq::ClientMiddleware do
     let(:some_worker_instance) { nil }
     let(:some_message) { Hash['class', double(underscore: queue_name)] }
 
-    let(:sidekiq_stats_instance_double) do
-      double("Librato::Sidekiq::Stats", :enqueued => 1, :failed => 2, :scheduled_size => 3)
-    end
-
     context 'when middleware is not enabled' do
 
       before(:each) { middleware.enabled = false }
@@ -98,7 +93,6 @@ describe Librato::Sidekiq::ClientMiddleware do
     context 'when middleware is enabled but queue is blacklisted' do
 
       before(:each) do
-        allow(Librato::Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield meter
       end
 
@@ -129,9 +123,7 @@ describe Librato::Sidekiq::ClientMiddleware do
       end
 
       before(:each) do
-        allow(Librato::Sidekiq::Stats).to receive(:new).and_return(sidekiq_stats_instance_double)
         allow(Librato).to receive(:group).with('sidekiq').and_yield(sidekiq_group)
-        allow(sidekiq_stats_instance_double).to receive(:queues)
       end
 
       it 'should measure queue metrics' do
